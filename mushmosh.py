@@ -1,6 +1,6 @@
-from customtkinter import *
+import customtkinter as ctk
 
-app = CTk()
+app = ctk.CTk()
 app.geometry("1280x720")
 
 app.title("MushMosh")

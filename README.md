@@ -76,21 +76,22 @@ The app features a GUI designed to simplify the process of importing files and a
 
 ---
 
-## Proposed Tech Stack
+## Tech Stack
+- **Language:** Python (3.8+)
 
 ### Frontend/GUI
-- **Electron:** Ideal for building cross-platform desktop applications with web technologies.
-- **React.js or Vue.js:** For developing a responsive and dynamic user interface.
-- **HTML5, CSS3, and JavaScript:** Core technologies for UI development.
+- **CustomTkinter:** Modern and customizable UI framework for creating desktop applications
+- **OpenCV (cv2):** For video processing, preview rendering, and thumbnails
 
 ### Backend/Video Processing
-- **FFMPEG:** The powerful open-source multimedia framework that handles all video processing tasks.
-- **Node.js:** Manages backend operations and interfaces directly with FFMPEG.
+- **FFMPEG:** Core video processing engine via ffmpeg-python
+- **ffmpeg-python:** Python bindings for FFMPEG
+- **numpy:** Essential for efficient video frame manipulation
 
 ### Additional Libraries & Tools
-- **Timeline Library:** Consider integrating a specialized timeline library or developing a custom solution for precise clip and time management.
-- **State Management:** Redux (if using React) or Vuex (if using Vue) to handle complex application state.
-- **Cross-Platform Build Tools:** Tools like Electron Forge or Electron Builder for packaging and deployment.
+- **pathlib:** Cross-platform path handling
+- **typing:** Type hints for better code maintainability
+- **logging:** Debug and error tracking
 
 ---
 
