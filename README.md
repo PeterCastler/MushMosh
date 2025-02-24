@@ -1,6 +1,6 @@
 # MushMosh
 
-MushMosh is a cross-platform desktop application for creative video manipulation that leverages the art of datamoshing. Built on top of FFMPEG, it empowers video artists to non-destructively replace i-frames with p-frames using two distinct techniques, giving rise to unique visual effects.
+MushMosh is a cross-platform desktop application for creative video manipulation that leverages the art of datamoshing. Built on top of FFMPEG, it empowers video artists to replace i-frames with p-frames using two distinct techniques, giving rise to unique visual effects.
 
 ---
 
@@ -9,9 +9,9 @@ MushMosh is a cross-platform desktop application for creative video manipulation
 MushMosh focuses exclusively on two datamoshing techniques:
 
 - **Wipe Mosh:** Replaces a single i-frame with a p-frame to gradually phase out the previous shot’s textures and colors.
-- **Persistent Mosh:** Replaces all i-frames within a selected time range, extending the previous shot’s look (texture and color) across that period while retaining only motion data.
+- **Persistent Mosh:** Replaces all i-frames within a selected time range, extending the previous shot’s look (texture and color) across that period while retaining only motion data from the following shot(s).
 
-The app features a streamlined, intuitive GUI designed to simplify the process of creating complex datamosh effects without sacrificing control or precision.
+The app features a GUI designed to simplify the process of importing files and applying datamosh effects without being overwhelmed by too many features and complexity.
 
 ---
 
