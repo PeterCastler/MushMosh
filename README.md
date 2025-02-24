@@ -111,16 +111,14 @@ The app features a GUI designed to simplify the process of importing files and a
 
 - **Timeline & Playback Options:**
   - Grid configuration: Define grid units (frames vs. seconds/milliseconds).
-  - Playhead snapping: Toggle and customize snapping behavior to i-frames.
-  - Layer management: Adjust visibility and stacking order.
+  - Playhead snapping: Toggle snapping to i-frames.
+  - Layer management: Adjust thumbnail visibility on the timeline.
   
 - **User Interface Preferences:**
-  - Customizable workspace layout.
-  - Theme options (light/dark mode).
+    - Theme options (light/dark mode).
 
 - **Editing Controls:**
-  - Undo/Redo functionality for non-destructive editing.
-  - Version control for tracking changes.
+  - Undo/Redo functionality for non-destructive editing (invisible, but available via keyboard shortcuts: Ctrl/Cmd+Z and Shift+Ctrl/Cmd+Z)
 
 - **Performance & Resource Management:**
   - Cache settings for smoother preview rendering.
@@ -130,8 +128,10 @@ The app features a GUI designed to simplify the process of importing files and a
 
 ## Final Notes
 
-This document serves as the handover guide for the MushMosh project. While the primary focus is on two datamosh techniques, the design allows for potential future enhancements. The recommended tech stack leverages familiar web technologies while introducing robust tools like Electron, Node.js, and FFMPEG for optimal performance across platforms.
+This document serves as the development guide for the MushMosh project. While the primary focus is on two datamosh techniques, the design allows for potential future enhancements. The recommended tech stack leverages Python's robust ecosystem while utilizing FFMPEG for optimal video processing across platforms.
 
-Team members are encouraged to discuss and iterate on this design, ensuring that all components are modular, maintainable, and scalable. Your expertise in HTML/CSS/JS provides a strong foundation to quickly adapt to new frameworks that enhance the overall success of this project.
+Contributors are encouraged to discuss and iterate on this design, ensuring that all components are modular, maintainable, and scalable. The combination of CustomTkinter for the GUI and FFMPEG for video processing provides a strong foundation to build upon and extend with additional features in the future.
+
+This project has a lot of potential for video manipulation with obscure effects, and I'm excited to see what will come of it.
 
 Happy coding!
