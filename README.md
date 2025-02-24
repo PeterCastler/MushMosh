@@ -8,8 +8,8 @@ MushMosh is a cross-platform desktop application for creative video manipulation
 
 MushMosh focuses exclusively on two datamoshing techniques:
 
-- **Wipe Mosh:** Replaces a single i-frame with a p-frame to gradually phase out the previous shot’s textures and colors.
-- **Persistent Mosh:** Replaces all i-frames within a selected time range, extending the previous shot’s look (texture and color) across that period while retaining only motion data from the following shot(s).
+- **Wipe Mosh:** Replaces a single i-frame with a p-frame to gradually phase out the previous shot's textures and colors.
+- **Persistent Mosh:** Replaces all i-frames within a selected time range, extending the previous shot's look (texture and color) across that period while retaining only motion data from the following shot(s).
 
 The app features a GUI designed to simplify the process of importing files and applying datamosh effects without being overwhelmed by too many features and complexity.
 
@@ -18,44 +18,57 @@ The app features a GUI designed to simplify the process of importing files and a
 ## Features
 
 - **Dual Datamosh Modes:**
-  - **Wipe Mosh:** Single-frame replacement for smooth transitions.
+  - **Wipe Mosh:** Single-frame replacement for transitions.
   - **Persistent Mosh:** Time-range replacement to sustain visual continuity.
   
-- **Intuitive GUI Layout:**
-  - **Media Pool (Left):** Central repository for all session files.
-  - **Rendered Preview (Center):** Real-time visual output of timeline edits.
+- **User Interface Layout:**
+  - **Session Pool (Left):** Central repository for all session files.
+  - **Rendered Preview (Center):** Real-time visual output of timeline edits (final look of the video).
   - **Settings Panel (Right):** Dual-tabbed interface:
-    - **Composition & Export Settings:** Configure resolution, FPS, bitrate, audio, codecs, containers, color grading, and more.
-    - **Additional Settings:** Adjust timeline snapping, grid configuration, UI preferences, and performance options.
+    - **Composition & Export Settings:** Configure resolution, FPS, bitrate, audio, codecs, containers, etc.
+    - **Additional Settings:** Adjust timeline snapping, grid configuration, UI preferences, etc.
   - **Timeline (Bottom):** Multi-layer editing area with:
-    - A slim playhead band for navigation.
-    - A numbered band for temporal selections.
-    - A larger clip view area where clip duration is visually represented.
+    - An numbered timeline with a playhead for navigation.
+    - A larger clip view area where clips and their duration are visually represented.
   
 - **Timeline Interaction:**
-  - **Playhead Navigation:** Dedicated buttons for jumping to the previous or next i-frame.
-  - **Dynamic Datamosh Button:** Context-sensitive activation that switches between “Insert Wipe Mosh” and “Insert Persistent Mosh” based on selection mode.
-  - **Visual Feedback:** Insertion of red vertical lines (with removable red dots) on clips to indicate where i-frame replacements have been applied.
-  - **Non-Destructive Editing:** All changes (p-frame insertions) can be undone, preserving original clip data.
+  - **Playback & Navigation:** Dedicated buttons for navigating between i-frames, playback (play/pause), and the "Datamosh" button.
+  - **Dynamic Datamosh Button:** Context-sensitive activation that switches between "Datamosh", "Insert Wipe Mosh" and "Insert Persistent Mosh" based on the position of the playhead and the current mode of selection. When the playhead is not on an i-frame or not on a selected clip, the button will be disabled and say "Datamosh". When the playhead is over an i-frame of a selected clip, the button will say "Insert Wipe Mosh". When the user makes a temporal selection, the button will say "Insert Persistent Mosh". The playhead does not need to be on an i-frame nor in the selected range, and not even on any selected clip to use the "Insert Persistent Mosh" button. The only prerequisite for using the "Insert Persistent Mosh" button is that the user has made a temporal selection.
+
+  - **Visual Feedback:**  
+    - Single i-frame replacements (Wipe Mosh): Displayed as vertical red line (1px width) with:
+      - Accompanying dot (5px diameter) centered on line
+      - White "×" symbol (1px stroke) in dot's center
+      - Clicking the dot removes both line and the i-frame replacement  
+    - Range replacements (Persistent Mosh): Highlighted with animated overlay featuring:
+      - Semi-transparent red diagonal lines (45°, 1px stroke, 2px spacing)
+      - Continuous left-to-right translation animation (2s duration)
+      - Persistent "x" dot indicator in the corner of the overlay, matches the single-replacement styling
+      - Clicking the "x" dot removes overlay and reverts all frames in range
+  - **Non-Destructive Editing:** All changes (i-frame replacements / p-frame insertions) can be undone, preserving original clip data.
+  - **Selection Mode:**
+    - Located in the top left corner of the timeline, two buttons allow for different selection modes:
+      - Clip-based selection tool (pointing hand cursor): Allows selecting clips one by one (holding shift allows for multi-select). When the playhead is atop of an i-frame, the datamosh button will say "Insert Wipe Mosh".
+      - Time-based selection tool (i-beam cursor): Allows selecting a range of time overlaying multiple clips. When the playhead is within a selected range, the datamosh button will say "Insert Persistent Mosh".
 
 - **Workflow Integration:**
-  - **Drag-and-Drop:** Import videos by dragging them into the Media Pool or Rendered Preview.
-  - **Seamless Session Management:** Once imported, clips can be arranged on the timeline, zoomed for precise editing, and modified with datamosh effects.
+  - **Drag-and-Drop:** Import videos by dragging them into the Session Pool or Rendered Preview.
+  - **Seamless Session Management:** Once imported, clips can be arranged on the timeline, zoomed for more granular editing, and modified with datamosh effects.
 
 ---
 
 ## How It Works
 
 1. **Session Initialization:**
-   - Drag and drop videos into the Media Pool or Rendered Preview to add files to the current session.
+   - Drag and drop videos into the Session Pool or Rendered Preview to add files to the current session.
 
 2. **Timeline Editing:**
    - Arrange clips on the timeline, which is divided into three horizontal bands (playhead, numbered time markers, and clip display).
-   - Choose between clip-based or time-based selections. When selecting by time, configure the “grid” (time unit: frames or seconds/milliseconds) for precision.
+   - Choose between clip-based or time-based selections. When selecting by time, configure the "grid" (time unit: frames or seconds/milliseconds) for precision.
 
 3. **Datamosh Insertion:**
-   - **Wipe Mosh:** Position the playhead over an i-frame on a selected clip. The “Datamosh” button becomes “Insert Wipe Mosh,” which replaces the single i-frame with a p-frame and marks the change with a red line.
-   - **Persistent Mosh:** Make a temporal selection (or select sequential clips) to cover a desired time period. The “Datamosh” button then switches to “Insert Persistent Mosh,” replacing all i-frames in that segment. The resulting modifier spans across all layers and can be adjusted by dragging its handles.
+   - **Wipe Mosh:** Position the playhead over an i-frame on a selected clip. The "Datamosh" button becomes "Insert Wipe Mosh," which replaces the single i-frame with a p-frame and marks the change with a red line.
+   - **Persistent Mosh:** Make a temporal selection (or select sequential clips) to cover a desired time period. The "Datamosh" button then switches to "Insert Persistent Mosh," replacing all i-frames in that segment. The resulting modifier spans across all layers and can be adjusted by dragging its handles.
 
 4. **Preview & Export:**
    - Use the Rendered Preview to view the effect as it will appear in the final export.
