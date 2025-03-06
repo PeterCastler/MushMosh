@@ -1,0 +1,48 @@
+---
+description: Phase 1: Core FFMPEG Integration & Frame Manipulation
+globs: 
+alwaysApply: true
+---
+## Core Objective
+Create a basic CLI tool that can identify i-frames, replace them with p-frames, and combine video clips while maintaining the datamosh effect.
+
+## Key Steps
+1. Set up basic project structure with FFMPEG integration
+   - Install and verify ffmpeg-python
+   - Create basic video loading functionality
+
+2. Develop frame analysis capabilities
+   - Create function to identify i-frames in a video
+   - Build frame type detection system
+   - Implement timestamp mapping for frames
+
+3. Create i-frame replacement mechanism
+   - Develop function to replace i-frames with p-frames
+   - Implement time range selection for replacements
+   - Verify frame replacement accuracy
+
+4. Implement basic clip combination
+   - Create function to concatenate two videos
+   - Ensure datamosh effect persists across clip boundaries
+   - Handle basic error cases (format mismatches, etc.)
+
+5. Build minimal CLI interface
+   - Input: Two video files and set their start and cut-off times.
+   - Input: Time range for i-frame replacement
+   - Output: Combined, datamoshed video file
+
+## Validation Criteria
+- Successfully identify i-frames in a video file
+- Replace i-frames with p-frames within specified time range
+- Combine two videos while maintaining the datamosh effect
+- Export a working video file
+- Basic error handling (invalid files, formats, etc.)
+
+## Next Steps
+If validation succeeds:
+- Enhance error handling and input validation
+- Add support for multiple video files
+- Begin planning basic GUI implementation
+
+## Final Step
+- Return to [Jarvis.mdc](mdc:.cursor/rules/Jarvis.mdc) to break down Phase 2.
