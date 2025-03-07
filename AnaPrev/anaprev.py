@@ -48,6 +48,31 @@ class VideoProcessor(QThread):
     def __init__(self, video_path):
         super().__init__()
         self.video_path = video_path
+        
+        # Platform-specific ffmpeg paths
+        if getattr(sys, 'frozen', False):
+            # Running in a bundle
+            if sys.platform == 'darwin':
+                bundle_dir = os.path.dirname(sys.executable)
+                self.ffmpeg_path = os.path.join(bundle_dir, 'ffmpeg')
+                self.ffprobe_path = os.path.join(bundle_dir, 'ffprobe')
+            elif sys.platform == 'win32':
+                bundle_dir = os.path.dirname(sys.executable)
+                self.ffmpeg_path = os.path.join(bundle_dir, 'ffmpeg.exe')
+                self.ffprobe_path = os.path.join(bundle_dir, 'ffprobe.exe')
+            else:
+                self.ffmpeg_path = 'ffmpeg'
+                self.ffprobe_path = 'ffprobe'
+        else:
+            # Running in development
+            self.ffmpeg_path = 'ffmpeg'
+            self.ffprobe_path = 'ffprobe'
+            
+        # Replace ffmpeg/ffprobe commands with full paths
+        duration_cmd = [self.ffprobe_path, '-v', 'error', '-show_entries', 
+                       'format=duration', '-of', 'default=noprint_wrappers=1:nokey=1', 
+                       video_path]
+        
         self.running = False
         self.paused = False
         self.current_position = 0  # Current position in milliseconds
@@ -59,9 +84,6 @@ class VideoProcessor(QThread):
         # Get video information using ffprobe
         try:
             # Get duration directly from container
-            duration_cmd = ['ffprobe', '-v', 'error', '-show_entries', 
-                           'format=duration', '-of', 'default=noprint_wrappers=1:nokey=1', 
-                           video_path]
             duration_output = subprocess.check_output(duration_cmd).decode('utf-8').strip()
             if duration_output and duration_output != 'N/A':
                 try:
