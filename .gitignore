@@ -15,6 +15,7 @@ out/
 .env.*.local
 
 # IDE and editor files
+.cursor/
 .idea/
 .vscode/
 *.swp
@@ -31,3 +32,6 @@ coverage/
 # Misc
 .cache/
 .temp/ 
+
+# Python venv
+venv/

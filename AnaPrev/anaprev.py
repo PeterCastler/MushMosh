@@ -1,38 +1,211 @@
 #!/usr/bin/env python3
 import sys
 import os
+
+def validate_imports():
+    required_imports = {
+        'PyQt5.QtWidgets': [
+            'QApplication',
+            'QWidget',
+            'QMainWindow',
+            'QVBoxLayout',
+            'QHBoxLayout',
+            'QPushButton',
+            'QGraphicsBlurEffect',
+            'QGraphicsScene',
+            'QGraphicsPixmapItem',
+            'QSlider',
+            'QLabel',
+            'QCheckBox',
+            'QFileDialog'  # Added for file opening dialog
+        ],
+        'PyQt5.QtGui': [
+            'QImage',
+            'QPixmap',
+            'QPainter',
+            'QFont',
+            'QPen'  # Added for drawing
+        ],
+        'PyQt5.QtCore': [
+            'Qt',
+            'QTimer',
+            'QThread',
+            'pyqtSignal',
+            'QMutex',
+            'QRect',
+            'QUrl'  # Added for drag and drop functionality
+        ],
+        'other': [
+            ('numpy', 'np'),
+            ('psutil', 'psutil'),
+            ('ffmpeg', 'ffmpeg')
+        ]
+    }
+
+    missing = []
+    
+    # Check PyQt5 imports
+    for module, classes in required_imports.items():
+        if module != 'other':
+            try:
+                imported_module = __import__(module, fromlist=classes)
+                for class_name in classes:
+                    if not hasattr(imported_module, class_name):
+                        missing.append(f"{module}.{class_name}")
+            except ImportError as e:
+                missing.extend([f"{module}.{class_name}" for class_name in classes])
+
+    # Check other imports
+    for package, alias in required_imports['other']:
+        try:
+            __import__(package)
+        except ImportError:
+            missing.append(package)
+
+    if missing:
+        print("Error: Missing required imports:")
+        for m in missing:
+            print(f"  - {m}")
+        print("\nPlease install required packages:")
+        print("pip install PyQt5 numpy psutil ffmpeg-python")
+        sys.exit(1)
+
+    return True
+
+# Validate imports before proceeding
+validate_imports()
+
+# If validation passes, do regular imports
 import subprocess
 import time
 import re
 import threading
-import numpy as np
 import json
 from pathlib import Path
-from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QFileDialog, QLabel, QCheckBox, QSlider
-from PyQt5.QtGui import QImage, QPixmap, QPainter
-from PyQt5.QtCore import Qt, QTimer, QThread, pyqtSignal, QMutex, QRect
+from datetime import datetime
+import logging
+import numpy as np
+
+from PyQt5.QtWidgets import (
+    QApplication,
+    QWidget,
+    QMainWindow,
+    QVBoxLayout,
+    QHBoxLayout,
+    QPushButton,
+    QGraphicsBlurEffect,
+    QGraphicsScene,
+    QGraphicsPixmapItem,
+    QSlider,
+    QLabel,
+    QCheckBox,
+    QFileDialog
+)
+from PyQt5.QtGui import (
+    QImage, 
+    QPixmap, 
+    QPainter, 
+    QFont,
+    QPen
+)
+from PyQt5.QtCore import (
+    Qt, 
+    QTimer, 
+    QThread, 
+    pyqtSignal, 
+    QMutex, 
+    QRect,
+    QUrl
+)
+
+import psutil
+import ffmpeg
+
+def setup_logger():
+    """Configure logging with detailed formatting and both file/console output"""
+    # Create logs directory if it doesn't exist
+    log_dir = os.path.expanduser('~/Library/Logs/AnaPrev') if sys.platform == 'darwin' else 'logs'
+    os.makedirs(log_dir, exist_ok=True)
+    
+    # Create a timestamp-based log filename
+    log_file = os.path.join(log_dir, f'anaprev_{datetime.now().strftime("%Y%m%d_%H%M%S")}.log')
+    
+    # Configure root logger
+    logger = logging.getLogger('AnaPrev')
+    logger.setLevel(logging.DEBUG)
+    
+    # Add import debugging
+    logger.debug("Importing PyQt5 modules...")
+    try:
+        from PyQt5.QtGui import QImage, QPixmap, QPainter, QFont
+        logger.debug("Successfully imported QtGui components")
+    except ImportError as e:
+        logger.error(f"Failed to import QtGui components: {e}")
+        raise
+        
+    try:
+        from PyQt5.QtWidgets import (QWidget, QMainWindow, QVBoxLayout, 
+                                   QHBoxLayout, QPushButton, QGraphicsBlurEffect, 
+                                   QGraphicsScene, QGraphicsPixmapItem)
+        logger.debug("Successfully imported QtWidgets components")
+    except ImportError as e:
+        logger.error(f"Failed to import QtWidgets components: {e}")
+        raise
+    
+    # Detailed formatter
+    formatter = logging.Formatter(
+        '%(asctime)s.%(msecs)03d [%(levelname)s] %(name)s:%(lineno)d - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    
+    # File handler with full debug output
+    file_handler = logging.FileHandler(log_file)
+    file_handler.setLevel(logging.DEBUG)
+    file_handler.setFormatter(formatter)
+    
+    # Console handler with info level
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+    console_handler.setFormatter(formatter)
+    
+    # Add both handlers
+    logger.addHandler(file_handler)
+    logger.addHandler(console_handler)
+    
+    logger.info("Logging system initialized")
+    logger.debug(f"Log file created at: {log_file}")
+    
+    return logger
 
 class FrameBuffer:
-    def __init__(self, max_size=10):
+    def __init__(self, max_size=None):
         self.buffer = []
-        self.max_size = max_size
+        self.max_size = max_size  # Set to None for unlimited size
         self.mutex = QMutex()
         
     def push(self, frame):
-        self.mutex.lock()
-        if len(self.buffer) >= self.max_size:
-            self.buffer.pop(0)  # Remove oldest frame
-        self.buffer.append(frame)
-        self.mutex.unlock()
+        if not self.mutex.tryLock(1000):  # 1 second timeout
+            print("WARNING: Failed to acquire mutex for push operation")
+            return False
+        try:
+            if self.max_size and len(self.buffer) >= self.max_size:
+                self.buffer.pop(0)  # Remove oldest frame if at capacity
+            self.buffer.append(frame)
+            print(f"Buffer size: {len(self.buffer)}")  # Monitor buffer growth
+            return True
+        finally:
+            self.mutex.unlock()
         
     def get_latest(self):
-        self.mutex.lock()
-        if not self.buffer:
-            self.mutex.unlock()
+        if not self.mutex.tryLock(1000):  # 1 second timeout
+            print("WARNING: Failed to acquire mutex for get_latest operation")
             return None
-        frame = self.buffer[-1]
-        self.mutex.unlock()
-        return frame
+        try:
+            if not self.buffer:
+                return None
+            return self.buffer[-1]
+        finally:
+            self.mutex.unlock()
         
     def clear(self):
         self.mutex.lock()
@@ -47,99 +220,54 @@ class VideoProcessor(QThread):
     
     def __init__(self, video_path):
         super().__init__()
+        self.logger = logging.getLogger('AnaPrev.VideoProcessor')
         self.video_path = video_path
+        self.logger.info(f"Initializing VideoProcessor for: {video_path}")
         
-        # Platform-specific ffmpeg paths
-        if getattr(sys, 'frozen', False):
-            # Running in a bundle
-            if sys.platform == 'darwin':
-                bundle_dir = os.path.dirname(sys.executable)
-                self.ffmpeg_path = os.path.join(bundle_dir, 'ffmpeg')
-                self.ffprobe_path = os.path.join(bundle_dir, 'ffprobe')
-            elif sys.platform == 'win32':
-                bundle_dir = os.path.dirname(sys.executable)
-                self.ffmpeg_path = os.path.join(bundle_dir, 'ffmpeg.exe')
-                self.ffprobe_path = os.path.join(bundle_dir, 'ffprobe.exe')
-            else:
-                self.ffmpeg_path = 'ffmpeg'
-                self.ffprobe_path = 'ffprobe'
-        else:
-            # Running in development
-            self.ffmpeg_path = 'ffmpeg'
-            self.ffprobe_path = 'ffprobe'
-            
-        # Replace ffmpeg/ffprobe commands with full paths
-        duration_cmd = [self.ffprobe_path, '-v', 'error', '-show_entries', 
-                       'format=duration', '-of', 'default=noprint_wrappers=1:nokey=1', 
-                       video_path]
+        # Initialize running state
+        self.running = True
         
-        self.running = False
-        self.paused = False
-        self.current_position = 0  # Current position in milliseconds
-        self.duration = 0  # Duration in milliseconds
-        self.seek_position = -1  # Position to seek to (-1 means no seeking)
-        self.seek_mutex = QMutex()  # Mutex to protect seek operations
-        self.position_mutex = QMutex()  # Mutex to protect position updates
+        # Log system info
+        self.logger.debug(f"Available RAM: {psutil.virtual_memory().available / (1024**3):.2f}GB")
+        self.logger.debug(f"CPU cores: {psutil.cpu_count()}")
         
-        # Get video information using ffprobe
         try:
-            # Get duration directly from container
-            duration_output = subprocess.check_output(duration_cmd).decode('utf-8').strip()
-            if duration_output and duration_output != 'N/A':
-                try:
-                    self.duration = int(float(duration_output) * 1000)  # Convert to milliseconds
-                    print(f"Video duration from container: {self.duration/1000:.2f} seconds")
-                except ValueError:
-                    self.duration = 0
+            # Get video information using ffprobe
+            self.logger.debug("Retrieving video information...")
+            probe = ffmpeg.probe(video_path)
+            print(f"Video info: {probe['streams'][0]}")  # Let's see what we're dealing with
+            video_info = next(s for s in probe['streams'] if s['codec_type'] == 'video')
             
-            # Get video dimensions and frame rate
-            info_cmd = ['ffprobe', '-v', 'error', '-select_streams', 'v:0', 
-                       '-show_entries', 'stream=width,height,r_frame_rate', 
-                       '-of', 'default=noprint_wrappers=1:nokey=1', 
-                       video_path]
-            info_output = subprocess.check_output(info_cmd).decode('utf-8').strip().split('\n')
+            self.width = int(video_info['width'])
+            self.height = int(video_info['height'])
+            self.frame_rate = float(eval(video_info['r_frame_rate']))
+            self.duration = float(video_info['duration']) * 1000  # ms
             
-            if len(info_output) >= 3:
-                self.width = int(info_output[0])
-                self.height = int(info_output[1])
-                
-                # Parse frame rate
-                fps_parts = info_output[2].split('/')
-                if len(fps_parts) == 2:
-                    self.frame_rate = float(fps_parts[0]) / float(fps_parts[1])
-                else:
-                    self.frame_rate = float(info_output[2])
-            else:
-                raise ValueError("Couldn't get video dimensions and frame rate")
-                
-            # If duration is still not available, estimate it
-            if self.duration <= 0:
-                # Count frames to get duration
-                frame_count_cmd = ['ffprobe', '-v', 'error', '-count_frames', 
-                                  '-select_streams', 'v:0', '-show_entries', 
-                                  'stream=nb_read_frames', '-of', 
-                                  'default=noprint_wrappers=1:nokey=1', 
-                                  video_path]
-                try:
-                    frame_count_output = subprocess.check_output(frame_count_cmd, timeout=10).decode('utf-8').strip()
-                    if frame_count_output and frame_count_output.isdigit():
-                        frame_count = int(frame_count_output)
-                        self.duration = int((frame_count / self.frame_rate) * 1000)
-                        print(f"Video duration from frame count: {self.duration/1000:.2f} seconds")
-                except (subprocess.SubprocessError, ValueError, subprocess.TimeoutExpired):
-                    # If frame counting times out or fails, use a default duration
-                    self.duration = 60000  # Default to 1 minute
-                    
-        except (subprocess.CalledProcessError, ValueError, IndexError) as e:
-            print(f"Error getting video information: {e}")
+            self.logger.info(f"Video specs: {self.width}x{self.height} @ {self.frame_rate}fps, "
+                           f"duration: {self.duration/1000:.2f}s")
+            
+        except Exception as e:
+            self.logger.error(f"Error getting video information: {e}", exc_info=True)
+            # Set fallback values
             self.width = 640
             self.height = 480
             self.frame_rate = 30.0
-            self.duration = 60000  # Default to 1 minute
+            self.duration = 60000
+            
+        # Create frame buffer with no size limit
+        self.frame_buffer = FrameBuffer(max_size=None)
+        self.preload_complete = False
+        self.frames_loaded = 0
+        self.total_frames = int(self.frame_rate * (self.duration / 1000))
         
-        # Create frame buffer
-        buffer_size = max(30, int(self.frame_rate / 4))  # Buffer 1/4 second of video
-        self.frame_buffer = FrameBuffer(max_size=buffer_size)
+        self.logger.debug(f"Estimated total frames: {self.total_frames}")
+        self.logger.debug(f"Estimated memory per frame: "
+                         f"{(self.width * self.height * 3) / (1024*1024):.2f}MB")
+        self.logger.debug(f"Estimated total memory needed: "
+                         f"{(self.width * self.height * 3 * self.total_frames) / (1024*1024*1024):.2f}GB")
+        
+        # Add flag for preloading
+        self.preload_complete = False
         
         # Detect hardware acceleration after initializing other variables
         self.hw_accel_method = None
@@ -193,7 +321,69 @@ class VideoProcessor(QThread):
         self.seek_position = position_ms
         self.seek_mutex.unlock()
     
+    def preload_video(self):
+        """Preload entire video into memory"""
+        print(f"Starting video preload: {self.video_path}")
+        print(f"Video specs: {self.width}x{self.height} @ {self.frame_rate}fps")
+        print(f"Initial memory usage: {psutil.Process().memory_info().rss / 1024 / 1024:.2f} MB")
+        
+        cmd = [
+            'ffmpeg',
+            '-i', self.video_path,
+            # Removed the -t 5 limitation
+            '-f', 'image2pipe',
+            '-pix_fmt', 'rgb24',
+            '-vcodec', 'rawvideo',
+            '-'
+        ]
+        
+        process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            bufsize=10**8
+        )
+        
+        try:
+            frame_size = self.width * self.height * 3
+            frames_loaded = 0
+            expected_frames = int(self.frame_rate * (self.duration / 1000))
+            
+            while True:
+                if frames_loaded % 30 == 0:  # Update every 30 frames (quarter second at 120fps)
+                    print(f"Loaded {frames_loaded}/{expected_frames} frames "
+                          f"({(frames_loaded/expected_frames)*100:.1f}%)")
+                    print(f"Current memory usage: {psutil.Process().memory_info().rss / 1024 / 1024:.2f} MB")
+                
+                raw_frame = process.stdout.read(frame_size)
+                if not raw_frame:
+                    stderr_output = process.stderr.read()
+                    if stderr_output:
+                        print(f"FFmpeg stderr: {stderr_output.decode('utf-8')}")
+                    break
+                
+                frame = np.frombuffer(raw_frame, np.uint8).reshape(
+                    (self.height, self.width, 3)
+                )
+                
+                if not self.frame_buffer.push(frame.copy()):
+                    print("Failed to push frame to buffer - stopping preload")
+                    break
+                    
+                frames_loaded += 1
+            
+        except Exception as e:
+            print(f"Error during preload: {e}")
+            traceback.print_exc()
+        finally:
+            process.terminate()
+            print(f"Preload ended after {frames_loaded} frames")
+            print(f"Final memory usage: {psutil.Process().memory_info().rss / 1024 / 1024:.2f} MB")
+    
     def run(self):
+        if not self.preload_complete:
+            self.preload_video()
+        
         self.running = True
         
         # Emit the duration when starting playback
@@ -411,9 +601,12 @@ class VideoPlayerWidget(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.image = None
+        self.blurred_preview = None
+        self.is_loading = False
         self.setMinimumSize(320, 180)
         self.aspect_ratio = 2.39  # Standard anamorphic aspect ratio
         self.pixel_aspect_ratio = 2.0  # Default PAR for anamorphic content
+        self.logger = logging.getLogger('AnaPrev.VideoPlayerWidget')
         
         # Add border styling
         self.setStyleSheet("border: none;")  # Default state
@@ -424,23 +617,72 @@ class VideoPlayerWidget(QWidget):
         self.aspect_ratio = (width * self.pixel_aspect_ratio) / height
         bytes_per_line = 3 * width
         self.image = QImage(frame.data, width, height, bytes_per_line, QImage.Format_RGB888)
+        self.is_loading = False
         self.update()
         
+    def set_loading_preview(self, frame):
+        """Set a blurred preview frame during loading"""
+        try:
+            # Convert numpy array to QImage
+            height, width = frame.shape[:2]
+            bytes_per_line = 3 * width
+            q_img = QImage(frame.data, width, height, bytes_per_line, QImage.Format_RGB888).copy()  # Make a deep copy
+            
+            # Create pixmap and apply blur effect
+            pixmap = QPixmap.fromImage(q_img)
+            
+            # Create a new QGraphicsScene and QGraphicsPixmapItem
+            scene = QGraphicsScene()
+            item = QGraphicsPixmapItem()
+            item.setPixmap(pixmap)
+            
+            # Apply blur effect
+            blur = QGraphicsBlurEffect()
+            blur.setBlurRadius(15)  # Reduced blur radius for better performance
+            item.setGraphicsEffect(blur)
+            scene.addItem(item)
+            
+            # Create result image
+            result = QImage(pixmap.size(), QImage.Format_RGB888)
+            painter = QPainter(result)
+            scene.render(painter)
+            painter.end()
+            
+            self.blurred_preview = result
+            self.is_loading = True
+            self.update()
+            
+        except Exception as e:
+            print(f"Error creating blurred preview: {e}")
+
     def paintEvent(self, event):
-        if self.image:
-            painter = QPainter(self)
+        if not self.image and not self.blurred_preview:
+            return
             
-            # Calculate the size maintaining aspect ratio
-            widget_width = self.width()
-            widget_height = self.height()
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.SmoothPixmapTransform)
+        
+        # Get widget dimensions
+        widget_width = self.width()
+        widget_height = self.height()
+        
+        if self.is_loading and self.blurred_preview:
+            # Display blurred preview during loading
+            image_to_draw = self.blurred_preview
+            # Add loading text overlay
+            painter.setFont(QFont('Arial', 14))
+            painter.setPen(Qt.white)
+            painter.drawText(self.rect(), Qt.AlignCenter, "Loading video...")
+        else:
+            # Display normal frame
+            image_to_draw = self.image
             
-            # Calculate target size preserving aspect ratio
+        if image_to_draw:
+            # Calculate aspect ratio preserving dimensions
             if widget_width / widget_height > self.aspect_ratio:
-                # Width is too wide, constrain by height
+                target_width = int(widget_height * self.aspect_ratio)
                 target_height = widget_height
-                target_width = int(target_height * self.aspect_ratio)
             else:
-                # Height is too tall, constrain by width
                 target_width = widget_width
                 target_height = int(target_width / self.aspect_ratio)
             
@@ -450,8 +692,8 @@ class VideoPlayerWidget(QWidget):
             
             # Draw the image with proper aspect ratio
             target_rect = QRect(x, y, target_width, target_height)
-            painter.drawImage(target_rect, self.image)
-            
+            painter.drawImage(target_rect, image_to_draw)
+        
     def set_approval_status(self, status):
         if status == "approved":
             self.setStyleSheet("border: 1px solid #4CAF50;")  # Green border
@@ -462,8 +704,14 @@ class VideoPlayerWidget(QWidget):
 
 
 class MainWindow(QMainWindow):
+    # Class-level signal declaration
+    update_ui_after_preload = pyqtSignal()
+
     def __init__(self):
         super().__init__()
+        # Initialize logger
+        self.logger = logging.getLogger('AnaPrev.MainWindow')
+        
         self.setWindowTitle("AnaPrev - Anamorphic Video Player (GPU Accelerated)")
         self.resize(1024, 768)
         
@@ -574,7 +822,10 @@ class MainWindow(QMainWindow):
         
         # Initialize approval system
         self.initialize_approval_system()
-    
+        
+        # Connect the signal to the slot
+        self.update_ui_after_preload.connect(self._update_ui_after_preload)
+
     def format_time(self, ms):
         """Format milliseconds as HH:MM:SS"""
         # Ensure ms is a valid number
@@ -646,68 +897,98 @@ class MainWindow(QMainWindow):
             event.acceptProposedAction()
     
     def dropEvent(self, event):
-        # Process the dropped files
-        if event.mimeData().hasUrls():
-            # Get the first URL (we'll only handle one file at a time)
-            url = event.mimeData().urls()[0]
-            # Convert QUrl to local file path
-            file_path = url.toLocalFile()
-            
-            # Check if it's a video file (simple extension check)
-            video_extensions = ['.mp4', '.avi', '.mkv', '.mov', '.wmv', '.flv']
-            if any(file_path.lower().endswith(ext) for ext in video_extensions):
-                self.load_video(file_path)
+        try:
+            print("Drop event started")  # Basic console output
+            if event.mimeData().hasUrls():
+                url = event.mimeData().urls()[0]
+                file_path = url.toLocalFile()
+                print(f"Processing file: {file_path}")  # Basic console output
                 
-                # Create a temporary processor to load the first frame
-                temp_processor = VideoProcessor(file_path)
-                temp_processor.hw_acceleration_enabled = self.hw_accel_checkbox.isChecked()
-                
-                # Start the processor briefly to get the first frame
-                temp_processor.start()
-                time.sleep(0.1)  # Give it a moment to process
-                
-                # Get the first frame from the buffer if available
-                first_frame = temp_processor.frame_buffer.get_latest()
-                if first_frame is not None:
-                    self.player.set_frame(first_frame)
-                
-                # Stop the temporary processor
-                temp_processor.stop()
+                video_extensions = ['.mp4', '.avi', '.mkv', '.mov', '.wmv', '.flv']
+                if any(file_path.lower().endswith(ext) for ext in video_extensions):
+                    self.load_video(file_path)
+        except Exception as e:
+            print(f"Crash in drop event: {str(e)}")
+            import traceback
+            traceback.print_exc()
     
     def load_video(self, file_path):
+        print("1. Entering load_video")
+        
         # Stop any current playback
         if self.video_processor and self.video_processor.running:
+            print("2. Stopping current video")
             self.stop_video()
-            
-        # Load the video
-        self.video_path = file_path
         
+        print("3. Creating new video processor")
         # Create a new video processor
         self.video_processor = VideoProcessor(file_path)
-        self.video_processor.hw_acceleration_enabled = self.hw_accel_checkbox.isChecked()
         
-        # Update info label
-        self.info_label.setText(f"{os.path.basename(file_path)} - {self.video_processor.width}x{self.video_processor.height} @ {self.video_processor.frame_rate:.1f}fps")
+        # Get and display blurred preview frame first
+        self.display_blurred_preview(file_path)
+        
+        # Start preloading in a separate thread to not block the UI
+        preload_thread = threading.Thread(target=self.start_preloading)
+        preload_thread.daemon = True
+        preload_thread.start()
+
+    def display_blurred_preview(self, file_path):
+        try:
+            cmd = [
+                'ffmpeg',
+                '-i', file_path,
+                '-vframes', '1',  # Get only first frame
+                '-f', 'image2pipe',
+                '-pix_fmt', 'rgb24',
+                '-vcodec', 'rawvideo',
+                '-'
+            ]
+            
+            process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                bufsize=10**8
+            )
+            
+            frame_size = self.video_processor.width * self.video_processor.height * 3
+            raw_frame = process.stdout.read(frame_size)
+            
+            if raw_frame:
+                frame = np.frombuffer(raw_frame, np.uint8).reshape(
+                    (self.video_processor.height, self.video_processor.width, 3)
+                )
+                self.player.set_loading_preview(frame)
+                
+        except Exception as e:
+            print(f"Error creating preview: {e}")
+            traceback.print_exc()
+        finally:
+            if process:
+                process.terminate()
+
+    def start_preloading(self):
+        print("Starting full video preload")
+        
+        # Start loading the full video
+        self.video_processor.preload_video()
+        
+        # Update UI elements after preload is complete
+        # Using Qt's signal system to safely update UI from another thread
+        self.update_ui_after_preload.emit()
+
+    def _update_ui_after_preload(self):
+        # Update info label with video details
+        self.info_label.setText(
+            f"{os.path.basename(self.video_processor.video_path)} - "
+            f"{self.video_processor.width}x{self.video_processor.height} "
+            f"@ {self.video_processor.frame_rate:.1f}fps (Fully loaded in RAM)"
+        )
         
         # Update timeline duration
         if self.video_processor.duration > 0:
             self.timeline.setMaximum(self.video_processor.duration)
             self.duration_label.setText(self.format_time(self.video_processor.duration))
-        
-        # Load first frame
-        self.video_processor.start()
-        
-        # Wait briefly for the first frame
-        start_time = time.time()
-        while time.time() - start_time < 1.0:  # Wait up to 1 second
-            frame = self.video_processor.frame_buffer.get_latest()
-            if frame is not None:
-                self.player.set_frame(frame)
-                break
-            time.sleep(0.1)
-        
-        # Stop the processor after getting the first frame
-        self.video_processor.stop()
         
         # Enable all relevant controls
         self.play_button.setEnabled(True)
